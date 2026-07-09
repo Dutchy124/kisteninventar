@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kisten Inventar</title>
+<meta name="theme-color" content="#111827">
+<style>
+:root{--bg:#f3f4f6;--card:#fff;--text:#111827;--muted:#6b7280;--line:#e5e7eb;--dark:#111827;--blue:#2563eb;--green:#166534;--red:#991b1b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+header{background:var(--dark);color:#fff;padding:16px 14px 12px;position:sticky;top:0;z-index:10}
+h1{font-size:22px;margin:0}
+.subtitle{font-size:13px;color:#d1d5db;margin-top:3px}
+nav{display:flex;gap:8px;overflow-x:auto;margin-top:12px;padding-bottom:1px}
+nav button{background:#374151;color:#fff;border:0;border-radius:999px;padding:10px 14px;font-weight:700;white-space:nowrap}
+nav button.active{background:#fff;color:#111827}
+main{padding:14px;max-width:900px;margin:0 auto}
+.card{background:var(--card);border-radius:18px;padding:14px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+h2{font-size:19px;margin:0 0 10px}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+input,textarea{width:100%;border:1px solid #d1d5db;border-radius:13px;padding:13px;font-size:16px;background:#fff}
+textarea{min-height:82px;resize:vertical}
+button{border:0;border-radius:13px;padding:12px 14px;font-size:15px;font-weight:700;margin-top:10px}
+.primary{background:var(--blue);color:#fff;width:100%}
+.secondary{background:#e5e7eb;color:#111827}
+.danger{background:#fee2e2;color:var(--red)}
+.ok{background:#dcfce7;color:var(--green)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
+.stat{background:#f9fafb;border:1px solid var(--line);border-radius:15px;padding:12px}
+.stat b{display:block;font-size:22px}.stat span{font-size:12px;color:var(--muted)}
+.item,.box{border:1px solid var(--line);border-radius:15px;padding:12px;margin-top:10px;background:#fff}
+.item h3,.box h3{margin:0 0 6px;font-size:18px}
+.pill{display:inline-block;background:#eef2ff;color:#3730a3;border-radius:999px;padding:4px 8px;margin:0 5px 6px 0;font-size:12px}
+.art{display:inline-block;background:#ecfdf5;color:#166534;border-radius:999px;padding:4px 8px;margin:0 5px 6px 0;font-size:12px;font-weight:700}
+.meta{font-size:14px;color:var(--muted);margin:4px 0;line-height:1.4}
+.actions{display:flex;gap:8px;margin-top:8px}.actions button{flex:1;margin-top:0}
+.hidden{display:none!important}
+.photo{width:100%;max-height:240px;object-fit:cover;border-radius:13px;border:1px solid var(--line);margin-top:8px}
+.photos{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.small{font-size:12px;color:var(--muted);line-height:1.45}
+.empty{text-align:center;color:var(--muted);padding:20px}
+#status{position:fixed;left:14px;right:14px;bottom:14px;background:#111827;color:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 8px 25px rgba(0,0,0,.25);z-index:99}
+@media(max-width:580px){.row,.grid{grid-template-columns:1fr}.actions{flex-direction:column}.photos{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+<h1>Kisten Inventar</h1>
+<div class="subtitle">Version 11 stabil · Fotos · Backup · IndexedDB</div>
+<nav>
+<button id="tabOverview" class="active">Übersicht</button>
+<button id="tabSearch">Suche</button>
+<button id="tabAdd">Hinzufügen</button>
+<button id="tabBackup">Backup</button>
+</nav>
+</header>
+
+<main>
+<section id="overview">
+  <div class="card">
+    <h2>Gesamtübersicht</h2>
+    <div class="grid">
+      <div class="stat"><b id="statQty">0</b><span>Gegenstände</span></div>
+      <div class="stat"><b id="statBoxes">0</b><span>Kisten</span></div>
+      <div class="stat"><b id="statCats">0</b><span>Kategorien</span></div>
+    </div>
+  </div>
+  <div class="card"><h2>Deine Kisten</h2><div id="boxList"></div></div>
+</section>
+
+<section id="search" class="hidden">
+  <div class="card">
+    <h2>Suchen</h2>
+    <input id="searchInput" placeholder="Artikelnummer, Gegenstand, Farbe, Größe, Kiste...">
+    <p class="small" id="searchCount"></p>
+  </div>
+  <div class="card"><h2>Treffer</h2><div id="results"></div></div>
+</section>
+
+<section id="add" class="hidden">
+  <div class="card">
+    <h2 id="formTitle">Gegenstand hinzufügen</h2>
+    <label>Artikelnummer</label><input id="articleInput" placeholder="z. B. 100001 oder A-001">
+    <div class="row"><div><label>Kiste</label><input id="boxInput" placeholder="z. B. Kiste 1"></div><div><label>Kategorie</label><input id="catInput" placeholder="z. B. Kleidung, Kabel"></div></div>
+    <label>Gegenstand</label><input id="nameInput" placeholder="z. B. USB-C Ladekabel">
+    <div class="row"><div><label>Farbe</label><input id="colorInput" placeholder="z. B. schwarz"></div><div><label>Größe</label><input id="sizeInput" placeholder="z. B. XL, M8, 40x60"></div></div>
+    <div class="row"><div><label>Menge</label><input id="qtyInput" type="number" min="1" value="1"></div><div><label>Standort</label><input id="placeInput" placeholder="z. B. Keller links"></div></div>
+    <label>Beschreibung</label><textarea id="descInput" placeholder="Weitere Details"></textarea>
+    <label>Fotos</label><input id="photoInput" type="file" accept="image/*" multiple>
+    <div id="previewPhotos" class="photos"></div>
+    <button id="saveBtn" class="primary">Speichern</button>
+    <button id="cancelBtn" class="secondary hidden">Abbrechen</button>
+  </div>
+</section>
+
+<section id="backup" class="hidden">
+  <div class="card">
+    <h2>Backup</h2>
+    <button id="exportJsonBtn" class="secondary">Vollbackup speichern (inkl. Fotos)</button>
+    <button id="importJsonBtn" class="secondary">Vollbackup importieren</button>
+    <button id="exportCsvBtn" class="secondary">CSV speichern (ohne Fotos)</button>
+    <button id="clearBtn" class="danger">Alles löschen</button>
+    <input id="importJsonFile" type="file" accept="application/json,.json" style="display:none">
+    <p class="small">Vollbackup enthält auch Fotos. Speichere es regelmäßig außerhalb der App, z. B. in Google Drive.</p>
+  </div>
+</section>
+</main>
+
+<div id="status" class="hidden"></div>
+
+<script>
+const DB_NAME = 'KistenInventarStableDB';
+const STORE = 'items';
+let db;
+let items = [];
+let editId = null;
+let selectedPhotos = null;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+const uid = () => (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+const cleanItem = i => ({
+  id: i.id || uid(),
+  article: i.article || '',
+  box: i.box || '',
+  category: i.category || i.cat || '',
+  name: i.name || '',
+  color: i.color || '',
+  itemSize: i.itemSize || i.sizeField || i.size || '',
+  qty: i.qty || '1',
+  place: i.place || '',
+  desc: i.desc || '',
+  photos: Array.isArray(i.photos) ? i.photos : (i.photo ? [i.photo] : []),
+  updated: i.updated || new Date().toISOString()
+});
+
+function toast(msg){
+  $('status').textContent = msg;
+  $('status').classList.remove('hidden');
+  setTimeout(() => $('status').classList.add('hidden'), 2200);
+}
+
+function openDB(){
+  return new Promise((resolve,reject)=>{
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = e => {
+      const database = e.target.result;
+      if(!database.objectStoreNames.contains(STORE)) database.createObjectStore(STORE, {keyPath:'id'});
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function store(mode='readonly'){ return db.transaction(STORE, mode).objectStore(STORE); }
+function getAll(){
+  return new Promise((resolve,reject)=>{
+    const req = store().getAll();
+    req.onsuccess = () => resolve(req.result.map(cleanItem));
+    req.onerror = () => reject(req.error);
+  });
+}
+function put(item){
+  return new Promise((resolve,reject)=>{
+    const req = store('readwrite').put(cleanItem(item));
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+function del(id){
+  return new Promise((resolve,reject)=>{
+    const req = store('readwrite').delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+function clearStore(){
+  return new Promise((resolve,reject)=>{
+    const req = store('readwrite').clear();
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dataUrlFromFile(file){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function unique(arr){ return [...new Set(arr.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'de',{numeric:true})); }
+
+function show(tab){
+  ['overview','search','add','backup'].forEach(id => $(id).classList.add('hidden'));
+  $(tab).classList.remove('hidden');
+  ['tabOverview','tabSearch','tabAdd','tabBackup'].forEach(id => $(id).classList.remove('active'));
+  $('tab' + tab[0].toUpperCase() + tab.slice(1)).classList.add('active');
+  render();
+}
+
+function render(){
+  const boxes = unique(items.map(i=>i.box));
+  const cats = unique(items.map(i=>i.category));
+  $('statQty').textContent = items.reduce((s,i)=>s+(parseInt(i.qty)||1),0);
+  $('statBoxes').textContent = boxes.length;
+  $('statCats').textContent = cats.length;
+
+  $('boxList').innerHTML = boxes.length ? boxes.map(box => {
+    const inside = items.filter(i=>i.box===box);
+    const qty = inside.reduce((s,i)=>s+(parseInt(i.qty)||1),0);
+    return `<div class="box" data-box="${esc(box)}"><h3>${esc(box)}</h3><span class="pill">${inside.length} Einträge</span><span class="pill">${qty} Stück</span><p class="meta">Antippen, um diese Kiste zu öffnen.</p></div>`;
+  }).join('') : `<div class="empty">Noch nichts eingetragen.</div>`;
+
+  document.querySelectorAll('.box[data-box]').forEach(el => el.onclick = () => {
+    show('search');
+    $('searchInput').value = el.dataset.box;
+    render();
+  });
+
+  const q = $('searchInput').value.toLowerCase().trim();
+  const res = items.filter(i => !q || [i.article,i.box,i.category,i.name,i.color,i.itemSize,i.qty,i.place,i.desc].join(' ').toLowerCase().includes(q));
+  $('searchCount').textContent = `${res.length} Treffer von ${items.length} Einträgen`;
+  $('results').innerHTML = res.length ? res.map(cardHtml).join('') : `<div class="empty">Keine Treffer gefunden.</div>`;
+
+  document.querySelectorAll('[data-edit]').forEach(btn => btn.onclick = () => editItem(btn.dataset.edit));
+  document.querySelectorAll('[data-delete]').forEach(btn => btn.onclick = () => deleteItem(btn.dataset.delete));
+}
+
+function cardHtml(i){
+  const photoHtml = (i.photos || []).slice(0,4).map(src => `<img class="photo" src="${src}">`).join('');
+  return `<div class="item">
+    <h3>${esc(i.name)}</h3>
+    ${i.article ? `<span class="art">Art.-Nr. ${esc(i.article)}</span>` : ''}
+    <span class="pill">${esc(i.box)}</span>
+    ${i.category ? `<span class="pill">${esc(i.category)}</span>` : ''}
+    ${i.color ? `<span class="pill">Farbe: ${esc(i.color)}</span>` : ''}
+    ${i.itemSize ? `<span class="pill">Größe: ${esc(i.itemSize)}</span>` : ''}
+    <span class="pill">${esc(i.qty)}x</span>
+    ${photoHtml ? `<div class="photos">${photoHtml}</div>` : ''}
+    ${i.place ? `<p class="meta"><b>Standort:</b> ${esc(i.place)}</p>` : ''}
+    ${i.desc ? `<p class="meta"><b>Beschreibung:</b> ${esc(i.desc)}</p>` : ''}
+    <div class="actions">
+      <button class="ok" data-edit="${i.id}">Bearbeiten</button>
+      <button class="danger" data-delete="${i.id}">Löschen</button>
+    </div>
+  </div>`;
+}
+
+async function saveItem(){
+  const existing = editId ? items.find(i=>i.id===editId) : null;
+  const newPhotos = [];
+  if(selectedPhotos && selectedPhotos.length){
+    for(const file of selectedPhotos) newPhotos.push(await dataUrlFromFile(file));
+  }
+  const item = cleanItem({
+    id: editId || uid(),
+    article: $('articleInput').value.trim(),
+    box: $('boxInput').value.trim(),
+    category: $('catInput').value.trim(),
+    name: $('nameInput').value.trim(),
+    color: $('colorInput').value.trim(),
+    itemSize: $('sizeInput').value.trim(),
+    qty: $('qtyInput').value || '1',
+    place: $('placeInput').value.trim(),
+    desc: $('descInput').value.trim(),
+    photos: newPhotos.length ? newPhotos : (existing ? existing.photos : []),
+    updated: new Date().toISOString()
+  });
+  if(!item.box || !item.name){ alert('Bitte mindestens Kiste und Gegenstand eintragen.'); return; }
+  try{
+    await put(item);
+    items = await getAll();
+    clearForm();
+    show('overview');
+    toast('Gespeichert');
+  }catch(err){
+    console.error(err);
+    alert('Speichern hat nicht geklappt. Das Foto ist eventuell zu groß. Bitte ein kleineres Foto probieren oder erst ein Vollbackup speichern.');
+  }
+}
+
+function editItem(id){
+  const i = items.find(x=>x.id===id);
+  if(!i) return;
+  editId = id;
+  selectedPhotos = null;
+  $('formTitle').textContent = 'Gegenstand bearbeiten';
+  $('saveBtn').textContent = 'Update speichern';
+  $('cancelBtn').classList.remove('hidden');
+  $('articleInput').value = i.article;
+  $('boxInput').value = i.box;
+  $('catInput').value = i.category;
+  $('nameInput').value = i.name;
+  $('colorInput').value = i.color;
+  $('sizeInput').value = i.itemSize;
+  $('qtyInput').value = i.qty;
+  $('placeInput').value = i.place;
+  $('descInput').value = i.desc;
+  $('previewPhotos').innerHTML = (i.photos || []).map(src => `<img class="photo" src="${src}">`).join('');
+  show('add');
+}
+
+async function deleteItem(id){
+  if(!confirm('Diesen Eintrag wirklich löschen?')) return;
+  await del(id);
+  items = await getAll();
+  render();
+  toast('Gelöscht');
+}
+
+function clearForm(){
+  ['articleInput','boxInput','catInput','nameInput','colorInput','sizeInput','placeInput','descInput'].forEach(id => $(id).value = '');
+  $('qtyInput').value = '1';
+  $('photoInput').value = '';
+  $('previewPhotos').innerHTML = '';
+  editId = null;
+  selectedPhotos = null;
+  $('formTitle').textContent = 'Gegenstand hinzufügen';
+  $('saveBtn').textContent = 'Speichern';
+  $('cancelBtn').classList.add('hidden');
+}
+
+async function exportJSON(){
+  const data = {version:11, exportedAt:new Date().toISOString(), items};
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'kisten-inventar-vollbackup.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+async function importJSONFile(file){
+  const text = await file.text();
+  const data = JSON.parse(text);
+  const imported = Array.isArray(data.items) ? data.items : [];
+  for(const raw of imported) await put(cleanItem(raw));
+  items = await getAll();
+  render();
+  toast(imported.length + ' Einträge importiert');
+}
+function exportCSV(){
+  const rows = [['Artikelnummer','Kiste','Kategorie','Gegenstand','Farbe','Größe','Menge','Standort','Beschreibung'], ...items.map(i=>[i.article,i.box,i.category,i.name,i.color,i.itemSize,i.qty,i.place,i.desc])];
+  const csv = rows.map(r=>r.map(v=>'"'+String(v||'').replaceAll('"','""')+'"').join(';')).join('\n');
+  const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'kisten-inventar.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async function start(){
+  try{
+    db = await openDB();
+    items = await getAll();
+    render();
+  }catch(err){
+    console.error(err);
+    alert('Die lokale Datenbank konnte nicht gestartet werden. Bitte in Chrome oder Samsung Internet öffnen und Seite neu laden.');
+  }
+}
+
+$('tabOverview').onclick = () => show('overview');
+$('tabSearch').onclick = () => show('search');
+$('tabAdd').onclick = () => show('add');
+$('tabBackup').onclick = () => show('backup');
+$('searchInput').oninput = render;
+$('saveBtn').onclick = saveItem;
+$('cancelBtn').onclick = () => { clearForm(); show('overview'); };
+$('photoInput').onchange = async e => {
+  selectedPhotos = Array.from(e.target.files || []);
+  $('previewPhotos').innerHTML = '';
+  for(const file of selectedPhotos){
+    const src = await dataUrlFromFile(file);
+    $('previewPhotos').insertAdjacentHTML('beforeend', `<img class="photo" src="${src}">`);
+  }
+};
+$('exportJsonBtn').onclick = exportJSON;
+$('importJsonBtn').onclick = () => $('importJsonFile').click();
+$('importJsonFile').onchange = e => e.target.files[0] && importJSONFile(e.target.files[0]);
+$('exportCsvBtn').onclick = exportCSV;
+$('clearBtn').onclick = async () => {
+  if(confirm('Wirklich alles löschen? Bitte vorher Vollbackup speichern.')){
+    await clearStore(); items=[]; render(); toast('Alles gelöscht');
+  }
+};
+
+start();
+</script>
+</body>
+</html>
